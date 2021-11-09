@@ -938,6 +938,8 @@ var rotorhazard = {
 		1: 'One',
 		0: 'None',
 	},
+	//pilot staging
+	pilot_staging: [],
 	language_strings: {},
 	interface_language: '',
 	// text-to-speech callout options

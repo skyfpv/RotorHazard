@@ -1,0 +1,117 @@
+{% extends "layout-basic.html" %} {% block title %}{{ __('Stream') }}: {{ __('Seat') }}{% endblock %}{% block head %}
+<link rel="stylesheet" href="/static/streamnode.css?{{ serverInfo['release_version'] | urlencode }}"></link>
+
+<script type="text/javascript" charset="utf-8">
+	var data_dependencies = [
+		'all_languages',
+		'language',
+		'leaderboard'
+	];
+
+	rotorhazard.show_messages = false;
+	streamnode = {{ node_id }}
+	$(document).ready(function () {
+		rotorhazard.show_messages = false;
+		socket.on('language', function (msg) {
+			if (msg.language) {
+				rotorhazard.interface_language = msg.language;
+			}
+		});
+		socket.emit('ready_up',{node: -1, readyState: false});
+		$('button#ready_up').click(function (event) {
+			var isReady = $('#ready_up').attr('data-ready');
+			if(isReady=="true"){
+				console.log("going from ready to not ready");
+				socket.emit('ready_up',{node: streamnode, readyState: false});
+				rotorhazard.timer.stopAll();
+				return false;
+			}else{
+				console.log("going from not ready to ready");
+				socket.emit('ready_up',{node: streamnode, readyState: true});
+				rotorhazard.timer.stopAll();
+				return false;
+			}
+		});
+		socket.on('stagedPilots', function (msg){	
+			if(streamnode in msg){
+				if(msg[streamnode] == true){
+					console.log("server says we are ready");
+					$('#ready_up').attr('data-ready', 'true');
+					var audio = new Audio('/static/audio/ready_up.mp3');
+					audio.play();
+				}
+				else {
+					console.log("server says we are not ready");
+					$('#ready_up').attr('data-ready', 'false');
+				}
+			}else{
+			}
+		
+		});
+		socket.on('leaderboard', function (msg) {
+			var race = msg.current.leaderboard;
+
+			primary_leaderboard = race.meta.primary_leaderboard;
+			leaderboard = race[primary_leaderboard];
+			found_streamnode = false;
+			for (var i in leaderboard) {
+				if (leaderboard[i].node == streamnode) {
+					found_streamnode = true;
+					pilot_data = leaderboard[i];
+					$('#callsign').html(pilot_data.callsign);
+					break;
+				}
+			}
+
+			if (!found_streamnode) {
+				$('#callsign').html('');
+			}
+		});
+	});
+
+</script>
+{% endblock %} {% block content %}
+<div class="buton-inside" style="border-radius: 5%; background-color: #1E1C1C; height: 100%; width: 100%; display: flex; align-items: center; justify-content: center;">
+	<button class="glass" data-ready="false" style="height: 95%; width: 95%;" id="ready_up" tabindex="-1">
+		<div style="font-size: 75px; color: #ffffff"> READY UP </div>
+		<div id="callsign" style="font-size: 25px; color: #ffffff">Pilot 1</div>
+	</button>
+</div>
+<style>
+	html, body {
+		height: 100%;
+		margin: 0px;
+	}
+	.fullScreenButton{
+		height: 100%;
+		width: 100%;
+		position: absolute;
+		border: 50px;
+		background-color: #04AA6D;
+		padding: 50px 28px;
+		font-size: 75px;
+		cursor: pointer;
+		text-align: center;
+	}
+	.glass{
+		border-radius: 5%;
+		background: linearGradient(red,red);
+	}
+	.glass:after{
+		border-radius: 5%;
+		content: '';
+		top:2.5%;
+		left: 2.5%;
+		position: absolute;
+		width: calc(100% - 5%);
+		height: 60%;
+		background: linear-gradient(rgba(255,255,255,0.8), rgba(255,255,255,0.2));
+	}
+	#ready_up[data-ready="true"] {
+		background-color: #00FF00;
+	}
+	#ready_up[data-ready="false"] {
+		background-color: #FF0000;
+	}
+</style>
+{% endblock %}

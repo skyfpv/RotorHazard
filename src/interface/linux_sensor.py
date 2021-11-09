@@ -63,9 +63,10 @@ def discover(*args, **kwargs):
 
     try:
         with open('/sys/class/power_supply/battery/present', 'r') as f:
-            if int(f.read()) == 1:
-                sensors.append(BatterySensor('Battery'))
-                logger.info('Battery status available')
+            if(f.read()!=''):
+                if int(f.read()) == 1:
+                    sensors.append(BatterySensor('Battery'))
+                    logger.info('Battery status available')
     except IOError as err:
         logger.debug('Battery status not available ({0})'.format(err))
 

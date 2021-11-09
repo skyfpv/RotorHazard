@@ -384,6 +384,11 @@ def render_results():
     '''Route to round summary page.'''
     return render_template('results.html', serverInfo=serverInfo, getOption=RHData.get_option, __=__, Debug=Config.GENERAL['DEBUG'])
 
+@APP.route('/ready/<int:node_id>')
+def render_ready(node_id):
+    if node_id <= RACE.num_nodes:
+        return render_template('ready.html', serverInfo=serverInfo, getOption=RHData.get_option, __=__,node_id=node_id-1)
+    
 @APP.route('/run')
 @requires_auth
 def render_run():
@@ -1947,7 +1952,9 @@ def on_get_pi_time():
 @SOCKET_IO.on('stage_race')
 @catchLogExceptionsWrapper
 def on_stage_race():
+    print(RACE.staged_pilots)
     global LAST_RACE
+    logger.debug('Staged Pilots: {0}'.format(RACE.staged_pilots))
     valid_pilots = False
     heat_data = RHData.get_heat(RACE.current_heat)
     heatNodes = RHData.get_heatNodes_by_heat(RACE.current_heat)
@@ -2034,6 +2041,33 @@ def on_stage_race():
 
     else:
         logger.info("Attempted to stage race while status is not 'ready'")
+
+@SOCKET_IO.on('ready_up')
+@catchLogExceptionsWrapper
+def on_pilot_ready(data):
+    logger.debug('Pilot on chair {0} is ready'.format(data['node']+1))
+    #count the number of occupied nodes
+    pilotNum = 0
+    for node_id in range(0,len(RACE.node_pilots)):
+        pilot_id = RACE.node_pilots[node_id]
+        if(pilot_id!=0):
+            pilotNum+=1
+    #if the node has a pilot associated, save its staging state
+    if(data['node'] in RACE.node_pilots):
+        if(RACE.node_pilots[data['node']] != 0): #don't stage the node if no pilot occupies it
+            RACE.staged_pilots[data['node']] = data['readyState']
+    #if all pilots have reported a staging status
+    if(pilotNum == len(RACE.staged_pilots)):
+        allPilotsStaged = True
+        for key in RACE.staged_pilots:
+            if(RACE.staged_pilots[key] != True):
+                allPilotsStaged = False
+                break
+        #if all pilots report a true stage state
+        if(allPilotsStaged):
+            logger.debug("all pilots staged. starting race!")
+            on_stage_race()
+    SOCKET_IO.emit('stagedPilots',RACE.staged_pilots)
 
 def autoUpdateCalibration():
     ''' Apply best tuning values to nodes '''
@@ -2239,6 +2273,9 @@ def race_expire_thread(start_token):
 @catchLogExceptionsWrapper
 def on_stop_race():
     '''Stops the race and stops registering laps.'''
+    for key in RACE.staged_pilots:
+        RACE.staged_pilots[key] = False
+    SOCKET_IO.emit('stagedPilots',RACE.staged_pilots)
     if CLUSTER:
         CLUSTER.emitToSplits('stop_race')
     # clear any crossings still in progress
