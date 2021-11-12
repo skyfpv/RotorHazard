@@ -2057,16 +2057,24 @@ def on_pilot_ready(data):
         if(RACE.node_pilots[data['node']] != 0): #don't stage the node if no pilot occupies it
             RACE.staged_pilots[data['node']] = data['readyState']
     #if all pilots have reported a staging status
-    if(pilotNum == len(RACE.staged_pilots)):
-        allPilotsStaged = True
-        for key in RACE.staged_pilots:
-            if(RACE.staged_pilots[key] != True):
-                allPilotsStaged = False
-                break
-        #if all pilots report a true stage state
-        if(allPilotsStaged):
-            logger.debug("all pilots staged. starting race!")
-            on_stage_race()
+    readyPilotNum = 0
+    for node in RACE.staged_pilots:
+        nodeReadyStatus = RACE.staged_pilots[node]
+        if nodeReadyStatus == True:
+            readyPilotNum += 1
+    #if(pilotNum == len(RACE.staged_pilots)):
+    #    allPilotsStaged = True
+    #    for key in RACE.staged_pilots:
+    #        if(RACE.staged_pilots[key] != True):
+    #            allPilotsStaged = False
+    #            break
+    #    #if all pilots report a true stage state
+    #    if(allPilotsStaged):
+    if(readyPilotNum == pilotNum):
+        logger.debug("all pilots staged. starting race!")
+        on_stage_race()
+    print(RACE.staged_pilots)
+    print(pilotNum)
     SOCKET_IO.emit('stagedPilots',RACE.staged_pilots)
 
 def autoUpdateCalibration():
