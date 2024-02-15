@@ -1,16 +1,23 @@
 '''LED visual effects'''
 
-# to use this handler, run:
-#    sudo apt-get install libjpeg-dev
-#    sudo pip install pillow
+# To use this LED-panel plugin see:
+#   https://github.com/RotorHazard/RotorHazard/blob/main/doc/Software%20Setup.md#led-panel-support
 
+import logging
 import Config
 from eventmanager import Evt
-from led_event_manager import LEDEffect, LEDEvent, Color, ColorVal
+from led_event_manager import LEDEffect, LEDEvent, Color, ColorVal, effect_delay
 from RHRace import RaceStatus
 import gevent
-from PIL import Image, ImageFont, ImageDraw
-from monotonic import monotonic
+from time import monotonic
+
+logger = logging.getLogger(__name__)
+
+try:
+    from PIL import Image, ImageFont, ImageDraw
+except ModuleNotFoundError as ex:
+    logger.debug(str(ex) + " ('pillow' module needed to use '" + __name__ + "')")
+    raise ModuleNotFoundError("'pillow' module not found") from ex
 
 def dataHandler(args):
     if 'data' in args:
@@ -23,7 +30,7 @@ def dataHandler(args):
                     diff = start_time - monotonic()
                     diff_to_s = diff % 1
                     if diff:
-                        gevent.sleep(diff_to_s)
+                        effect_delay(diff_to_s * 1000.0, args)
                         args['text'] = int(diff)
                         printCharacter(args)
                     else:
@@ -94,21 +101,21 @@ def printCharacter(args):
     use_small_flag = True
     if panel['height'] >= 16:
         font = ImageFont.truetype('static/fonts/RotorHazardPanel16.ttf', 16)
-        w, h = font.getsize(text)
+        _, _, w, h = font.getbbox(text)
         if w <= panel['width'] - 1:
             use_small_flag = False
             h = 16
 
     if use_small_flag:
         font = ImageFont.truetype('static/fonts/RotorHazardPanel8.ttf', 8)
-        w, h = font.getsize(text)
+        _, _, w, h = font.getbbox(text)
         h = 8
 
     panel['draw'].text((int((panel['width']-w)/2), int((panel['height']-h)/2)), text, font=font, fill=(color))
 
     img = panel['im'].rotate(90 * Config.LED['PANEL_ROTATE'], expand=True)
 
-    setPixels(strip, img)
+    setPixels(strip, img, panel['width'])
     strip.show()
 
 def scrollText(args):
@@ -133,11 +140,11 @@ def scrollText(args):
 
     if panel['height'] >= 16:
         font = ImageFont.truetype('static/fonts/RotorHazardPanel16.ttf', 16)
-        w, h = font.getsize(text)
+        _, _, w, h = font.getbbox(text)
         h = 16
     else:
         font = ImageFont.truetype('static/fonts/RotorHazardPanel8.ttf', 8)
-        w, h = font.getsize(text)
+        _, _, w, h = font.getbbox(text)
         h = 8
 
     draw_y = int((panel['height']-h)/2)
@@ -146,9 +153,9 @@ def scrollText(args):
         panel['draw'].rectangle((0, 0, panel['width'], panel['height']), fill=(0, 0, 0))
         panel['draw'].text((-i, draw_y), text, font=font, fill=(color))
         img = panel['im'].rotate(90 * Config.LED['PANEL_ROTATE'], expand=True)
-        setPixels(strip, img)
+        setPixels(strip, img, panel['width'])
         strip.show()
-        gevent.sleep(10/1000.0)
+        effect_delay(10, args)
 
 def multiLapGrid(args):
     if 'strip' in args:
@@ -156,8 +163,8 @@ def multiLapGrid(args):
     else:
         return False
 
-    if 'rhapi' in args:
-        result = args['rhapi'].race.results
+    if 'RHAPI' in args:
+        result = args['RHAPI'].race.results
     else:
         return False
 
@@ -196,13 +203,13 @@ def multiLapGrid(args):
                 else:
                     text = '+'
             else:
-                if args['rhapi'].race.status == RaceStatus.DONE:
+                if args['RHAPI'].race.status == RaceStatus.DONE:
                     text = str(line['laps'])
                 else:
                     # first callsign character
                     text = line['callsign'][0]
 
-            w, h = font.getsize(text)
+            _, _, w, h = font.getbbox(text)
             h = font_h
             color = convertColor(args['manager'].getDisplayColor(line['node'], from_result=True))
 
@@ -223,7 +230,7 @@ def multiLapGrid(args):
             panel['draw'].text((pos_x + 1, pos_y), text, font=font, fill=color)
 
     img = panel['im'].rotate(90 * Config.LED['PANEL_ROTATE'], expand=True)
-    setPixels(strip, img)
+    setPixels(strip, img, panel['width'])
     strip.show()
 
 def getPanelImg(strip):
@@ -245,7 +252,7 @@ def getPanelImg(strip):
         'draw': ImageDraw.Draw(im)
     }
 
-def setPixels(strip, img):
+def setPixels(strip, img, panel_w):
     pos = 0
     for row in range(0, img.height):
         for col in range(0, img.width):
@@ -255,7 +262,7 @@ def setPixels(strip, img):
             c = col
             if Config.LED['INVERTED_PANEL_ROWS']:
                 if row % 2 == 0:
-                    c = 15 - col
+                    c = (panel_w - 1) - col
 
             px = img.getpixel((c, row))
             strip.setPixelColor(pos, Color(px[0], px[1], px[2]))
@@ -366,7 +373,7 @@ def discover():
     if (Config.LED['LED_ROWS'] >= 16):
         effects.append(
             LEDEffect(
-                "Text: 4-Node Lap Count",
+                "Text: 4-Seat Lap Count",
                 multiLapGrid, {
                     'include': [LEDEvent.IDLE_DONE, LEDEvent.IDLE_RACING],
                     'recommended': [

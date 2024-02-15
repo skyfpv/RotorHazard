@@ -1,14 +1,21 @@
 '''LED visual effects'''
 
-# to use this handler, run:
-#    sudo apt-get install libjpeg-dev
-#    sudo pip install pillow
+# To use this LED-panel plugin see:
+#   https://github.com/RotorHazard/RotorHazard/blob/main/doc/Software%20Setup.md#led-panel-support
 
+import logging
 import Config
 from eventmanager import Evt
-from led_event_manager import LEDEffect, Color
+from led_event_manager import LEDEffect, Color, effect_delay
 import gevent
-from PIL import Image
+
+logger = logging.getLogger(__name__)
+
+try:
+    from PIL import Image
+except ModuleNotFoundError as ex:
+    logger.debug(str(ex) + " ('pillow' module needed to use '" + __name__ + "')")
+    raise ModuleNotFoundError("'pillow' module not found") from ex
 
 def showBitmap(args):
     if 'strip' in args:
@@ -16,7 +23,7 @@ def showBitmap(args):
     else:
         return False
 
-    def setPixels(img):
+    def setPixels(img, panel_w):
         pos = 0
         for row in range(0, img.height):
             for col in range(0, img.width):
@@ -26,7 +33,7 @@ def showBitmap(args):
                 c = col
                 if Config.LED['INVERTED_PANEL_ROWS']:
                     if row % 2 == 0:
-                        c = 15 - col
+                        c = (panel_w - 1) - col
 
                 px = img.getpixel((c, row))
                 strip.setPixelColor(pos, Color(px[0], px[1], px[2]))
@@ -64,14 +71,13 @@ def showBitmap(args):
             output_img.paste(img, (pad_left, pad_top))
             output_img = output_img.rotate(90 * Config.LED['PANEL_ROTATE'], expand=True)
 
-            setPixels(output_img)
+            setPixels(output_img, panel_w)
             strip.show()
-            gevent.sleep(delay/1000.0)
+            effect_delay(delay, args)
 
 def register_handlers(args):
     for led_effect in [
         LEDEffect("Image: RotorHazard", showBitmap, {
-                'include': [Evt.SHUTDOWN],
                 'recommended': [Evt.STARTUP]
             }, {
                 'bitmaps': [
@@ -82,7 +88,6 @@ def register_handlers(args):
             name='bitmapRHLogo',
         ),
         LEDEffect("Image: Orange Ellipsis", showBitmap, {
-                'include': [Evt.SHUTDOWN],
                 'recommended': [Evt.RACE_STAGE]
             }, {
                 'bitmaps': [
@@ -93,7 +98,6 @@ def register_handlers(args):
             name='bitmapOrangeEllipsis',
         ),
         LEDEffect("Image: Green Upward Arrow", showBitmap, {
-                'include': [Evt.SHUTDOWN],
                 'recommended': [Evt.RACE_START]
             }, {
                 'bitmaps': [
@@ -104,7 +108,6 @@ def register_handlers(args):
             name='bitmapGreenArrow',
         ),
         LEDEffect("Image: Red X", showBitmap, {
-                'include': [Evt.SHUTDOWN],
                 'recommended': [Evt.RACE_STOP]
             }, {
                 'bitmaps': [
@@ -115,7 +118,6 @@ def register_handlers(args):
             name='bitmapRedX',
         ),
         LEDEffect("Image: Checkerboard", showBitmap, {
-                'include': [Evt.SHUTDOWN],
                 'recommended': [Evt.RACE_FINISH, Evt.RACE_STOP]
             }, {
                 'bitmaps': [

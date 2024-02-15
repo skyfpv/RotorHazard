@@ -11,10 +11,12 @@ import gevent
 import RHUtils
 from RHUtils import catchLogExceptionsWrapper, cleanVarName
 import logging
-from monotonic import monotonic
+from time import monotonic
 from RHRace import RaceStatus, StartBehavior, WinCondition, WinStatus
 
 logger = logging.getLogger(__name__)
+
+NONE_NONE_PAIR = [None, None]
 
 class RaceClassRankManager():
     def __init__(self, RHAPI, Events):
@@ -396,6 +398,19 @@ def calc_leaderboard(rhDataObj, **params):
                         'points': total_points
                     })
 
+    gevent.sleep()
+    # find leader for each lap in race
+    leader_laps = {}
+    for chk_pilot in leaderboard:
+        chk_laps = chk_pilot.get('current_laps', [])
+        for chk_lap in chk_laps:
+            lnum = chk_lap.get('lap_number')
+            if lnum:
+                ldr_plt, ldr_lap = leader_laps.get(lnum, NONE_NONE_PAIR)
+                # if first entry or earliest entry for lap
+                if (not ldr_lap) or chk_lap.get('lap_time_stamp', 999999) < ldr_lap.get('lap_time_stamp', 0):
+                    leader_laps[lnum] = [ chk_pilot, chk_lap ]
+
     for result_pilot in leaderboard:
         gevent.sleep()
 
@@ -481,6 +496,23 @@ def calc_leaderboard(rhDataObj, **params):
                         break
 
                 result_pilot['fastest_lap'] = fast_lap.lap_time
+
+        gevent.sleep()
+        # Determine number of seconds behind leader
+        result_pilot['time_behind'] = None
+        if USE_CURRENT and result_pilot['laps'] > 0:
+            pilot_laps = result_pilot.get('current_laps', [])
+            if len(pilot_laps) > 0:
+                current_lap = pilot_laps[-1]
+                cur_lap_num = current_lap.get('lap_number', 0)
+                if cur_lap_num > 0:  # pilot has completed at least first lap
+                    ldr_pilot, ldr_lap = leader_laps.get(cur_lap_num, NONE_NONE_PAIR)
+                    # if another pilot is leader on lap
+                    if ldr_lap and ldr_pilot.get('node') != result_pilot.get('node'):
+                        ldr_lap_ts = ldr_lap.get('lap_time_stamp', 0)
+                        cur_lap_ts = current_lap.get('lap_time_stamp', 0)
+                        if cur_lap_ts > ldr_lap_ts:
+                            result_pilot['time_behind'] = (cur_lap_ts - ldr_lap_ts)
 
         gevent.sleep()
         # find best consecutive X laps
@@ -593,6 +625,9 @@ def calc_leaderboard(rhDataObj, **params):
 
         result_pilot['fastest_lap_raw'] = result_pilot['fastest_lap']
         result_pilot['fastest_lap'] = RHUtils.time_format(result_pilot['fastest_lap'], timeFormat)
+
+        result_pilot['time_behind_raw'] = result_pilot['time_behind']
+        result_pilot['time_behind'] = RHUtils.time_format(result_pilot['time_behind'], timeFormat)
 
         result_pilot['consecutives_raw'] = result_pilot['consecutives']
         result_pilot['consecutives'] = RHUtils.time_format(result_pilot['consecutives'], timeFormat)
@@ -964,7 +999,7 @@ class LapInfo():
         seat = None
         position = None
         callsign = None
-        split_time = None
+        diff_time = None
         lap_number = None
         last_lap_time = None
         total_time = None
@@ -1116,7 +1151,7 @@ def get_gap_info(RaceContext, seat_index):
         pass_info.next_rank.seat = int(next_rank_split_result['node'])
         pass_info.next_rank.position = None
         pass_info.next_rank.callsign = str(next_rank_split_result['callsign'])
-        pass_info.next_rank.split_time = int(round(next_rank_split, 0 ))
+        pass_info.next_rank.diff_time = int(round(next_rank_split, 0 ))
         pass_info.next_rank.lap_number = next_rank_split_result['laps']
         pass_info.next_rank.last_lap_time = None
         pass_info.next_rank.total_time = int(round(next_rank_split_result['total_time_raw'], 0))
@@ -1135,7 +1170,7 @@ def get_gap_info(RaceContext, seat_index):
         pass_info.first_rank.seat = int(first_rank_split_result['node'])
         pass_info.first_rank.position = None
         pass_info.first_rank.callsign = str(first_rank_split_result['callsign'])
-        pass_info.first_rank.split_time = int(round(first_rank_split, 0))
+        pass_info.first_rank.diff_time = int(round(first_rank_split, 0))
         pass_info.first_rank.lap_number = first_rank_split_result['laps']
         pass_info.first_rank.last_lap_time = None
         pass_info.first_rank.total_time = int(round(first_rank_split_result['total_time_raw'], 0))

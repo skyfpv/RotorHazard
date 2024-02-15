@@ -7,13 +7,17 @@
 
 # RH Database and backups
 *.db
-db_bkp
+/src/server/db_bkp/*
+!/src/server/db_bkp/README.md
 
 # Local system configuration
 /src/server/config.json
 
 # Run logs
 logs
+
+# Specific folders
+venv
 
 # User files, except the README
 /src/server/static/user/*

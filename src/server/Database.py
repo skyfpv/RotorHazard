@@ -66,6 +66,9 @@ class Pilot(DB.Model):
 
 class PilotAttribute(DB.Model):
     __tablename__ = 'pilot_attribute'
+    __table_args__ = (
+        DB.UniqueConstraint('id', 'name'),
+    )    
     id = DB.Column(DB.Integer, DB.ForeignKey("pilot.id"), nullable=False, primary_key=True)
     name = DB.Column(DB.String(80), nullable=False, primary_key=True)
     value = DB.Column(DB.String(), nullable=True)
@@ -117,6 +120,15 @@ class HeatStatus:
     PLANNED = 0
     PROJECTED = 1
     CONFIRMED = 2
+
+class HeatAttribute(DB.Model):
+    __tablename__ = 'heat_attribute'
+    __table_args__ = (
+        DB.UniqueConstraint('id', 'name'),
+    )
+    id = DB.Column(DB.Integer, DB.ForeignKey("heat.id"), nullable=False, primary_key=True)
+    name = DB.Column(DB.String(80), nullable=False, primary_key=True)
+    value = DB.Column(DB.String(), nullable=True)
 
 class HeatNode(DB.Model):
     __tablename__ = 'heat_node'
@@ -205,6 +217,15 @@ class HeatAdvanceType:
     NEXT_HEAT = 1
     NEXT_ROUND = 2
 
+class RaceClassAttribute(DB.Model):
+    __tablename__ = 'race_class_attribute'
+    __table_args__ = (
+        DB.UniqueConstraint('id', 'name'),
+    )
+    id = DB.Column(DB.Integer, DB.ForeignKey("race_class.id"), nullable=False, primary_key=True)
+    name = DB.Column(DB.String(80), nullable=False, primary_key=True)
+    value = DB.Column(DB.String(), nullable=True)
+
 class LapSplit(DB.Model):
     __tablename__ = 'lap_split'
     __table_args__ = (
@@ -252,6 +273,15 @@ class SavedRaceMeta(DB.Model):
     def __repr__(self):
         return '<SavedRaceMeta %r>' % self.id
 
+class SavedRaceMetaAttribute(DB.Model):
+    __tablename__ = 'saved_race_meta_attribute'
+    __table_args__ = (
+        DB.UniqueConstraint('id', 'name'),
+    )
+    id = DB.Column(DB.Integer, DB.ForeignKey("saved_race_meta.id"), nullable=False, primary_key=True)
+    name = DB.Column(DB.String(80), nullable=False, primary_key=True)
+    value = DB.Column(DB.String(), nullable=True)
+
 class SavedPilotRace(DB.Model):
     __tablename__ = 'saved_pilot_race'
     __table_args__ = (
@@ -293,6 +323,7 @@ class LapSource:
     MANUAL = 1
     RECALC = 2
     AUTOMATIC = 3
+    API = 4
 
 class Profiles(DB.Model):
     __tablename__ = 'profiles'
@@ -343,6 +374,14 @@ class RaceFormat(DB.Model):
         logger.warning("Use of deprecated staging_tones attribute, use 'staging_delay_tones'", stack_info=True)
         self.staging_delay_tones = value
 
+class RaceFormatAttribute(DB.Model):
+    __tablename__ = 'race_format_attribute'
+    __table_args__ = (
+        DB.UniqueConstraint('id', 'name'),
+    )
+    id = DB.Column(DB.Integer, DB.ForeignKey("race_format.id"), nullable=False, primary_key=True)
+    name = DB.Column(DB.String(80), nullable=False, primary_key=True)
+    value = DB.Column(DB.String(), nullable=True)
 
 class GlobalSettings(DB.Model):
     __tablename__ = 'global_settings'

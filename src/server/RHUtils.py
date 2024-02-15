@@ -12,6 +12,7 @@ import glob
 import socket
 import random
 import json
+import util.RH_GPIO as RH_GPIO
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,12 @@ PILOT_ID_NONE = 0  # indicator value for no pilot configured
 HEAT_ID_NONE = 0  # indicator value for practice heat
 CLASS_ID_NONE = 0  # indicator value for unclassified heat
 FORMAT_ID_NONE = 0  # indicator value for unformatted class
-FREQUENCY_ID_NONE = 0       # indicator value for node disabled
-IS_SYS_RASPBERRY_PI = True  # set by 'idAndLogSystemInfo()'
+FREQUENCY_ID_NONE = 0  # indicator value for node disabled
+
+RHGPIO_S32ID_PIN = 25  # GPIO input is tied low on S32_BPill PCB
+
+Is_sys_raspberry_pi_flag = True  # set by 'idAndLogSystemInfo()'
+S32_BPill_board_flag = False  # set by 'idAndLogSystemInfo()'
 
 def time_format(millis, timeformat='{m}:{s}.{d}'):
     '''Convert milliseconds to 00:00.000'''
@@ -73,31 +78,114 @@ def phonetictime_format(millis, timeformat='{m} {s}.{d}'):
 def getPythonVersionStr():
     return sys.version.split()[0]
 
+# True if the given version ('verStr') is higher than or equal to the specified version
 def checkVersionStr(verStr, majorVer, minorVer):
     verList = verStr.split('.')
     return int(verList[0]) >= int(majorVer) and int(verList[1]) >= int(minorVer)
 
 def idAndLogSystemInfo():
-    global IS_SYS_RASPBERRY_PI
-    IS_SYS_RASPBERRY_PI = False
+    global Is_sys_raspberry_pi_flag
+    global S32_BPill_board_flag
+    Is_sys_raspberry_pi_flag = False
+    S32_BPill_board_flag = False
     try:
-        modelStr = None
-        try:
-            fileHnd = open("/proc/device-tree/model", "r")
-            modelStr = fileHnd.read()
-            fileHnd.close()
-        except:
-            pass
+        modelStr = getHostModelStr()
         if modelStr and "raspberry pi" in modelStr.lower():
-            IS_SYS_RASPBERRY_PI = True
+            Is_sys_raspberry_pi_flag = True
             logger.info("Host machine: " + modelStr.strip('\0'))
-        logger.info("Host OS: {} {}".format(platform.system(), platform.release()))
+        hostInfoStr = getHostOsInfoStr()
+        if hostInfoStr:
+            logger.info("Host OS: {}".format(hostInfoStr))
         logger.info("Python version: {}".format(getPythonVersionStr()))
+        S32_BPill_board_flag = RH_GPIO.check_input_tied_low(RHGPIO_S32ID_PIN)
+        if S32_BPill_board_flag:
+            logger.info("S32_BPill board detected")
     except Exception:
         logger.exception("Error in 'idAndLogSystemInfo()'")
 
-def isSysRaspberryPi():
-    return IS_SYS_RASPBERRY_PI
+# Returns an informational string about the host model / machine, or None if unable
+def getHostModelStr():
+    _modelStr = None
+    try:
+        try:
+            with open("/proc/device-tree/model", 'r') as fileHnd:
+                _modelStr = fileHnd.read()
+        except:
+            pass
+    except Exception as ex:
+        logger.debug("Error in 'getHostModelStr': {}".format(ex))
+    return _modelStr
+
+# Returns an informational string about the host operating system, or None if unable
+def getHostOsInfoStr():
+    _hostInfoStr = None
+    try:
+        osRelStr = getOsReleasePrettyName()
+        if osRelStr:
+            _hostInfoStr = "{}{} ({} {})".format( \
+                osRelStr, getOsBitSizeStr(" "), platform.system(), platform.release())
+        else:
+            _hostInfoStr = "{} {}{}".format(platform.system(), platform.release(), getOsBitSizeStr(" "))
+    except Exception as ex:
+        logger.debug("Error in 'getHostOsInfoStr': {}".format(ex))
+    return _hostInfoStr
+
+# Reads the '/etc/os-release' file and returns the value of the PRETTY_NAME entry; or None if unsuccessful
+def getOsReleasePrettyName():
+    _prettyNameStr = None
+    try:
+        etcOsReleasePath = '/etc/os-release'
+        delim1Str = 'PRETTY_NAME="'
+        delim2Str = '"'
+        if os.path.exists(etcOsReleasePath):
+            with open(etcOsReleasePath, 'r') as fileHnd:
+                relInfoStr = fileHnd.read()
+            sPos = relInfoStr.find(delim1Str)
+            if sPos >= 0:
+                sPos += len(delim1Str)
+                ePos = relInfoStr.find(delim2Str, sPos)
+                if ePos > sPos:
+                    _prettyNameStr = relInfoStr[sPos:ePos]
+    except Exception as ex:
+        logger.debug("Error in 'getOsReleasePrettyName': {}".format(ex))
+    return _prettyNameStr
+
+# Returns a string indicating the bit size of the operating system (32 or 64-bit), or an empty string if unable
+def getOsBitSizeStr(prefixStr=None, suffixStr="-bit"):
+    _bitSizeStr = ''
+    try:
+        fetchedStr = subprocess.check_output(['getconf', 'LONG_BIT']).decode("utf-8").rstrip()
+        if fetchedStr and len(fetchedStr) > 0 and len(fetchedStr) <= 3 and \
+                        fetchedStr[0].isdigit() and fetchedStr[1].isdigit():
+            _bitSizeStr = fetchedStr  # expected return string is "32" or "64"
+            if prefixStr:
+                _bitSizeStr = prefixStr + _bitSizeStr
+            if suffixStr:
+                _bitSizeStr = _bitSizeStr + suffixStr
+    except Exception as ex:
+        logger.debug("Error in 'getOsBitSizeStr': {}".format(ex))
+    return _bitSizeStr
+
+# Returns True if Raspberry Pi hardware detected
+def is_sys_raspberry_pi():
+    return Is_sys_raspberry_pi_flag
+
+# Returns True if S32_BPill board detected
+def is_S32_BPill_board():
+    return S32_BPill_board_flag
+
+# Debug-test function for setting the S32_BPill-board-detected flag
+def set_S32_BPill_boardFlag():
+    global S32_BPill_board_flag
+    S32_BPill_board_flag = True
+
+# Returns True if real hardware GPIO detected
+def is_real_hw_GPIO():
+    return RH_GPIO.is_real_hw_GPIO()
+
+# Returns a string indicating the type of GPIO detected
+def get_GPIO_type_str():
+    return RH_GPIO.get_GPIO_type_str()
 
 # Returns "primary" IP address for local host.  Based on:
 #  https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
@@ -156,7 +244,7 @@ def substituteAddrWildcards(determineHostAddressFn, destAddrStr):
 # Returns True if owner changed to 'pi' user; False if not.
 def checkSetFileOwnerPi(fileNameStr):
     try:
-        if IS_SYS_RASPBERRY_PI:
+        if Is_sys_raspberry_pi_flag:
             # check that 'pi' user exists, file/dir exists, and owner is 'root'
             if os.path.isdir("/home/pi") and os.path.exists(fileNameStr) and os.stat(fileNameStr).st_uid == 0:
                 subprocess.check_call(["sudo", "chown", "pi:pi", fileNameStr])
@@ -199,7 +287,7 @@ def catchLogExceptionsWrapper(func):
 def uniqueName(desiredName, otherNames):
     if desiredName in otherNames:
         newName = desiredName
-        match = re.match('^(.*) ([0-9]*)$', desiredName)
+        match = re.match('^(.*) ([0-9]+)$', desiredName)
         if match:
             nextInt = int(match.group(2))
             nextInt += 1
@@ -288,82 +376,6 @@ def launchBrowser(hostStr, httpPortNum=0, pageNameStr=None, launchCmdStr=None):
     except Exception:
         logger.exception("Error launching browser")
 
-# Auto-frequency algorithm prioritizing minimum channel changes
-def find_best_slot_node_basic(available_seats):
-    # if only one match has priority
-    for an_idx, node in enumerate(available_seats):
-        num_priority = 0
-        best_match = 0
-        for idx, option in enumerate(node['matches']):
-            if option['priority']:
-                num_priority += 1
-                best_match = idx
-
-        if num_priority == 1:
-            return node, node['matches'][best_match]['slot'], an_idx
-
-    # if any match has priority
-    for an_idx, node in enumerate(available_seats):
-        order = list(range(len(node['matches'])))
-        random.shuffle(order)
-        for idx in order:
-            if node['matches'][idx]['priority']:
-                return node, node['matches'][idx]['slot'], an_idx
-
-    # if only match
-    for an_idx, node in enumerate(available_seats):
-        if len(node['matches']) == 1:
-            return node, node['matches'][0]['slot'], an_idx
-
-    # if any match
-    for an_idx, node in enumerate(available_seats):
-        if len(node['matches']):
-            idx = random.randint(0, len(node['matches']) - 1)
-            return node, node['matches'][idx]['slot'], an_idx
-
-    return None, None, None
-
-# Auto-frequency algorithm suitable for Adaptive Calibration
-def find_best_slot_node_adaptive(available_seats):
-    # if only match has priority
-    for an_idx, node in enumerate(available_seats):
-        if len(node['matches']) == 1:
-            if node['matches'][0]['priority']:
-                return node, node['matches'][0]['slot'], an_idx
-
-    # if only match
-    for an_idx, node in enumerate(available_seats):
-        if len(node['matches']) == 1:
-            return node, node['matches'][0]['slot'], an_idx
-
-    # if one match has priority
-    for an_idx, node in enumerate(available_seats):
-        num_priority = 0
-        best_match = 0
-        for idx, option in enumerate(node['matches']):
-            if option['priority']:
-                num_priority += 1
-                best_match = idx
-
-        if num_priority == 1:
-            return node, node['matches'][best_match]['slot'], an_idx
-
-    # if any match has priority
-    for an_idx, node in enumerate(available_seats):
-        order = list(range(len(node['matches'])))
-        random.shuffle(order)
-        for idx in order:
-            if node['matches'][idx]['priority']:
-                return node, node['matches'][idx]['slot'], an_idx
-
-    # if any match
-    for an_idx, node in enumerate(available_seats):
-        if len(node['matches']):
-            idx = random.randint(0, len(node['matches']) - 1)
-            return node, node['matches'][idx]['slot'], an_idx
-
-    return None, None, None
-
 def getFastestSpeedStr(rhapi, spoken_flag, sel_pilot_id=None):
     fastest_str = ""
     lap_splits = rhapi.db.lap_splits()
@@ -378,8 +390,8 @@ def getFastestSpeedStr(rhapi, spoken_flag, sel_pilot_id=None):
         else:
             if rhapi.race.race_winner_lap_id > 0:  # filter out splits after race winner declared
                 lap_splits = [s for s in lap_splits if s.lap_id < rhapi.race.race_winner_lap_id]
-        fastest_split = max(lap_splits, key=lambda s: (s.split_speed if s.split_speed else 0.0))
-        if fastest_split:
+        fastest_split = max(lap_splits, default=None, key=lambda s: (s.split_speed if s.split_speed else 0.0))
+        if fastest_split and fastest_split.split_speed:
             if sel_pilot_id:
                 if spoken_flag:
                     fastest_str = "{:.1f}".format(fastest_split.split_speed)
@@ -405,12 +417,14 @@ def doReplace(rhapi, text, args, spoken_flag=False):
             heat = rhapi.db.heat_by_id(rhapi.race.heat)
         text = text.replace('%HEAT%', heat.display_name if heat and heat.display_name else rhapi.__('None'))
 
+        pilot_name_str = ''
         if 'pilot_id' in args or 'node_index' in args:
             if 'pilot_id' in args:
                 pilot = rhapi.db.pilot_by_id(args['pilot_id'])
             else:
                 pilot = rhapi.db.pilot_by_id(rhapi.race.pilots[args['node_index']])
-            text = text.replace('%PILOT%', pilot.spoken_callsign if spoken_flag else pilot.display_callsign)
+            pilot_name_str = pilot.spoken_callsign if spoken_flag else pilot.display_callsign
+            text = text.replace('%PILOT%', pilot_name_str)
 
         race_results = rhapi.race.results
         leaderboard = None
@@ -448,6 +462,27 @@ def doReplace(rhapi, text, args, spoken_flag=False):
                                 result['fastest_lap_raw'], rhapi.db.option('timeFormatPhonetic')) \
                                 if spoken_flag else result['fastest_lap'])
 
+                    if '%TIME_BEHIND' in text:
+                        behind_str = phonetictime_format( \
+                                result['time_behind_raw'], rhapi.db.option('timeFormatPhonetic')) \
+                                if spoken_flag else result['time_behind']
+                        # %TIME_BEHIND% : Amount of time behind race leader
+                        text = text.replace('%TIME_BEHIND%', behind_str)
+                        pos_bhind_str = ''
+                        if len(behind_str) > 0:
+                            behind_str = "{} {}".format(behind_str, rhapi.__('behind'))
+                            pos_bhind_str = str(result.get('position', ''))
+                            if pos_bhind_str == '1':  # only do %TIME_BEHIND_POS_CALL% if not first
+                                pos_bhind_str = ''
+                            if len(pos_bhind_str) > 0:
+                                pos_bhind_str = "{} {} {} {}, {}".format(rhapi.__('Pilot'), \
+                                                    pilot_name_str, rhapi.__('finished at position'), \
+                                                    pos_bhind_str, behind_str)
+                        # %TIME_BEHIND_CALL% : Amount of time behind race leader (with prompt)
+                        text = text.replace('%TIME_BEHIND_CALL%', behind_str)
+                        # %TIME_BEHIND_FINPOS_CALL% : Pilot NAME finished at position X, MM:SS.SSS behind
+                        text = text.replace('%TIME_BEHIND_FINPOS_CALL%', pos_bhind_str)
+
                     # %FASTEST_SPEED%
                     text = text.replace('%FASTEST_SPEED%', getFastestSpeedStr(rhapi, spoken_flag, \
                                                                               result.get('pilot_id')))
@@ -460,8 +495,14 @@ def doReplace(rhapi, text, args, spoken_flag=False):
                     else:
                         text = text.replace('%CONSECUTIVE%', rhapi.__('None'))
 
-                    # %POSITION%
-                    text = text.replace('%POSITION%', str(result['position']))
+                    if '%POSITION' in text:
+                        # %POSITION% : Race position for pilot
+                        position_str = str(result.get('position', ''))
+                        text = text.replace('%POSITION%', position_str)
+                        # %POSITION_CALL% : Race position for pilot (with prompt)
+                        if len(position_str) > 0:
+                            position_str = "{} {}".format(rhapi.__('Position'), position_str)
+                        text = text.replace('%POSITION_CALL%', position_str)
 
                     break
 
@@ -571,8 +612,9 @@ def getPilotFreqsStr(rhapi, sep_str, spoken_flag):
     return pilots_str
 
 def cleanVarName(varStr): 
-    return re.sub('\W|^(?=\d)','_', varStr)
+    return re.sub(r'\W|^(?=\d)','_', varStr)
 
+# Logs a warning message if the version of python in use is lower than the specified version
 def checkPythonVersion(majorVer, minorVer):
     try:
         verStr = getPythonVersionStr()
