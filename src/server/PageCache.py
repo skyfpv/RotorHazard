@@ -16,8 +16,8 @@ import gevent
 
 logger = logging.getLogger(__name__)
 
-from flask_sqlalchemy import SQLAlchemy
-DB = SQLAlchemy()
+import FlaskAppObj
+FlaskAppObj.APP.app_context().push()
 
 class PageCache:
     _CACHE_TIMEOUT = 10
@@ -34,7 +34,8 @@ class PageCache:
             logger.debug('Getting results from cache')
             return self._cache
         else:
-            self.update_cache()
+            with self._racecontext.rhdata.get_db_session_handle():
+                self.update_cache()
             return self._cache
 
     def get_buildToken(self):
