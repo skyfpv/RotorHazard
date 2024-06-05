@@ -2043,7 +2043,7 @@ def on_simulate_lap(data):
         })
     RaceContext.interface.intf_simulate_lap(node_index, 0)
 
-RHAPI.interface.simulate_lap = on_simulate_lap # TODO: Refactor management functions
+RHAPI.interface.intf_simulate_lap = on_simulate_lap # TODO: Refactor management functions
 
 @SOCKET_IO.on('LED_solid')
 @catchLogExceptionsWrapper

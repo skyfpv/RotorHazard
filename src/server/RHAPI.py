@@ -1182,7 +1182,7 @@ class HardwareInterfaceAPI():
     def seats(self):
         return self._racecontext.interface.nodes
 
-    def simulate_lap(self, data):
+    def intf_simulate_lap(self, node_index, ms_val):
         pass # replaced externally. TODO: Refactor management functions
 
 #
