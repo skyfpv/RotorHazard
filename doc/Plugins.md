@@ -2,18 +2,18 @@
 
 - [Installing and Running](#installing-and-running)
 - [Development](#development)
-    - [Initialize Function](#initialize-function)
-    - [RHAPI](#rhapi)
-    - [Standard Events](#standard-events)
-    - [Race Points](#race-points)
-    - [Class Ranking](#class-ranking)
-    - [Heat Generators](#heat-generators)
-    - [Actions](#actions)
-    - [LED Effects](#led-effects)
-    - [Data Exporters](#data-exporters)
-    - [Data Importers](#data-importers)
-    - [UI Fields](#ui-fields)
-    - [Metadata](#metadata)
+  - [Initialize Function](#initialize-function)
+  - [RHAPI](#rhapi)
+  - [Standard Events](#standard-events)
+  - [Race Points](#race-points)
+  - [Class Ranking](#class-ranking)
+  - [Heat Generators](#heat-generators)
+  - [Actions](#actions)
+  - [LED Effects](#led-effects)
+  - [Data Exporters](#data-exporters)
+  - [Data Importers](#data-importers)
+  - [UI Fields](#ui-fields)
+  - [Metadata](#metadata)
 
 ## Installing and Running
 
@@ -25,13 +25,14 @@ If you have issues with a plugin, contact its developer to ensure compatibility 
 
 ## Development
 
-At minimum, a plugin must contain an `initialize()` function within its `__init__.py` file. A plugin may assign functions to *standard events* or register *handlers* to various hooks within the system to run its code.
+At minimum, a plugin must contain an `initialize()` function within its `__init__.py` file. A plugin may assign functions to _standard events_ or register _handlers_ to various hooks within the system to run its code.
 
 ### Initialize Function
 
 RotorHazard calls a plugin's `initialize()` function early during server startup. _This function should not be used to add behaviors directly_, but to register handlers where behavior will be called. As the only argument to `initialize`, RotorHazard provides the timer's API for working with data and frontend UI; see [RHAPI](RHAPI.md).
 
 For example, a plugin might register events to be run at startup like this:
+
 ```
 from eventmanager import Evt
 
@@ -47,18 +48,18 @@ See [RHAPI Documentation](RHAPI.md)
 
 ### Standard Events
 
-*Events* are *triggered* by the timer as important actions take place—for example, when a frequency is set, a pilot is added, or a race begins. When an *event* is *triggered*, all registered *handlers* are run. *Events* may pass arguments containing useful data such as the node number, pilot callsign, or race object. 
+_Events_ are _triggered_ by the timer as important actions take place—for example, when a frequency is set, a pilot is added, or a race begins. When an _event_ is _triggered_, all registered _handlers_ are run. _Events_ may pass arguments containing useful data such as the node number, pilot callsign, or race object.
 
-Interfacing with *Events* is provided via [RHAPI](RHAPI.md#standard-events).
-
+Interfacing with _Events_ is provided via [RHAPI](RHAPI.md#standard-events).
 
 ### Race Points
 
-*Points Methods* are functions that assign point values to pilot results when a race is completed. If a user assigns a points method to a race format, points will be displayed on the race and heat summary leaderboards. Points may also be used and displayed by *Class Ranking Methods*.
+_Points Methods_ are functions that assign point values to pilot results when a race is completed. If a user assigns a points method to a race format, points will be displayed on the race and heat summary leaderboards. Points may also be used and displayed by _Class Ranking Methods_.
 
-*Points Methods* must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.POINTS_INITIALIZE` event. Pass a `RacePointsMethod` object to this method to register it.
+_Points Methods_ must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.POINTS_INITIALIZE` event. Pass a `RacePointsMethod` object to this method to register it.
 
 For example, a points method might be registered with the following functions:
+
 ```
 from eventmanager import Evt
 from Results import RacePointsMethod
@@ -77,7 +78,7 @@ def initialize(rhapi):
 
 #### RacePointsMethod(label, assign_fn, default_args=None, settings=None, name=None)
 
-Provides metadata and function linkage for *points methods*.
+Provides metadata and function linkage for _points methods_.
 
 - `label` (string): user-facing text that appears in the RotorHazard frontend interface
 - `assign_fn` (function): function to run when points are calculated for a race
@@ -95,11 +96,12 @@ The `assignFn` receives as arguments:
 
 ### Class Ranking
 
-*Class Ranking Methods* are functions that output custom leaderboards to class results after races are completed. If a user assigns a ranking method to a class, the cooresponding leaderboard will be displayed as a "Class Ranking" panel.
+_Class Ranking Methods_ are functions that output custom leaderboards to class results after races are completed. If a user assigns a ranking method to a class, the cooresponding leaderboard will be displayed as a "Class Ranking" panel.
 
-*Class Ranking Methods* must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.CLASS_RANK_INITIALIZE` event. Pass a `RaceClassRankMethod` object to this method to register it.
+_Class Ranking Methods_ must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.CLASS_RANK_INITIALIZE` event. Pass a `RaceClassRankMethod` object to this method to register it.
 
 For example, a class rank might be registered with the following functions:
+
 ```
 from eventmanager import Evt
 from Results import RaceClassRankMethod
@@ -118,7 +120,7 @@ def initialize(rhapi):
 
 #### RaceClassRankMethod(label, rank_fn, default_args=None, settings=None, name=None)
 
-Provides metadata and function linkage for *points methods*.
+Provides metadata and function linkage for _points methods_.
 
 - `label` (string): user-facing text that appears in the RotorHazard frontend interface
 - `rank_fn` (function): function to run when class leaderboards are calculated
@@ -132,12 +134,12 @@ The `rank_fn` receives as arguments:
 - `race_class` (dict): current `RaceClass` object
 - `args` (dict): collated default and locally-provided arguments
 
-`rank_fn` must return a tuple of (`leaderboard`, `meta`). 
+`rank_fn` must return a tuple of (`leaderboard`, `meta`).
 
 `leaderboard` is a table&#8212;functionally, a list of dicts&#8212;that should be ordered by ranking. The "row" dicts must contain:
 
 - `position` (string): The rank for this row; not required to be unique or numeric
-- `pilot_id` (int): ID value for the pilot in this row 
+- `pilot_id` (int): ID value for the pilot in this row
 - `callsign` (string): callsing for the pilot in this row
 
 The row dicts may additionally contain any other keys the author deems necessary, but all rows in the table must maintain the same structure.
@@ -146,19 +148,19 @@ The row dicts may additionally contain any other keys the author deems necessary
 
 - `method_label` _optional_ (string): User-facing rank title (for Results page)
 - `rank_fields` (list): A list of dicts with the following format:
-    - `name` (string): the key of the field in `leaderboard` with data to display
-    - `label` (string): user-facing text used as column header in the ranking table
+  - `name` (string): the key of the field in `leaderboard` with data to display
+  - `label` (string): user-facing text used as column header in the ranking table
 
 When displayed on the front-end, only `position`, `callsign` and fields listed in `rank_fields` will be displayed in the ranking table.
 
-
 ### Heat Generators
 
-*Heat Generators* are functions that return a list of heats which are fed into a race class. When a user runs a generator, they choose a source for seeding and feed the results into an existing class or create a new class.
+_Heat Generators_ are functions that return a list of heats which are fed into a race class. When a user runs a generator, they choose a source for seeding and feed the results into an existing class or create a new class.
 
-*HeatGenerators* must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.HEAT_GENERATOR_INITIALIZE` event. Pass a `HeatGenerator` object to this method to register it.
+_HeatGenerators_ must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.HEAT_GENERATOR_INITIALIZE` event. Pass a `HeatGenerator` object to this method to register it.
 
 For example, a heat generator might be registered with the following functions:
+
 ```
 from eventmanager import Evt
 from HeatGenerator import HeatGenerator, HeatPlan, HeatPlanSlot, SeedMethod
@@ -189,29 +191,31 @@ The `generator_fn` receives as arguments:
 - `args` (dict): collated default and locally-provided arguments
 
 `args` will include, at minimum:
+
 - `input_class` (int): id of race class intended to be used for seeding
 - `output_class` (int or None): id of race class where generated heats will be output
 - `available_seats` (int): number of seats currently available to assign pilots into (seats with an active frequency assignment)
 
-Your `generator_fn` must return a list of `HeatPlan`s (or `None`). 
+Your `generator_fn` must return a list of `HeatPlan`s (or `None`).
 
 A `HeatPlan` object uses the following format:
+
 - `name` (string): Name to be applied to this heat
 - `slots` (list\[HeatPlanSlot\]): A list of `HeatPlanSlot`s
 
-A `HeatPlanSlot` object uses the following format:
-    - `method` (SeedMethod): Method used for seeding
-    - `seed_rank` (int): Rank to seed from
-    - `seed_index` _optional_ (int): Index of heat within the plan list to seed from, when `method` is `HEAT_INDEX`
+A `HeatPlanSlot` object uses the following format: - `method` (SeedMethod): Method used for seeding - `seed_rank` (int): Rank to seed from - `seed_index` _optional_ (int): Index of heat within the plan list to seed from, when `method` is `HEAT_INDEX` or `CLASS_INDEX`
 
 ##### Seeding methods
+
 Heat slots can be seeded either directly from
 `SeedMethod` (imported from `HeatGenerator`)
 
 - `INPUT`: The slot is seeded from the `seed_rank` position in the input class ranking
 - `HEAT_INDEX`: The slot is seeded from the `seed_rank` position in the heat specified by `seed_index`
+- `CLASS_INDEX`: The slot is seeded from the `seed_rank` position in the class specified by `seed_index`
 
 The following heat plan is a double-advance ladder. Pilots ranked 3rd through 6th from the input class are seeded into the first heat. Then, the 1st and 2nd place from that heat advance to the second heat where they join the 1st and 2nd place from the input class.
+
 ```
 [
     HeatPlan(
@@ -235,14 +239,14 @@ The following heat plan is a double-advance ladder. Pilots ranked 3rd through 6t
 ]
 ```
 
-
 ### Actions
 
-*Actions* are behaviors assigned to events by users from the server's UI. *Action effects* are assigned to and triggered by the *event* a user has configured within an *action*. All parameters of the selected *event* in the *action* become available to the *effect*.
+_Actions_ are behaviors assigned to events by users from the server's UI. _Action effects_ are assigned to and triggered by the _event_ a user has configured within an _action_. All parameters of the selected _event_ in the _action_ become available to the _effect_.
 
-*Effects* must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.ACTIONS_INITIALIZE` event. Pass an `ActionEffect` object to this method to register it.
+_Effects_ must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.ACTIONS_INITIALIZE` event. Pass an `ActionEffect` object to this method to register it.
 
 For example, an effect might be registered with the following functions:
+
 ```
 from eventmanager import Evt
 from EventActions import ActionEffect
@@ -261,7 +265,7 @@ def initialize(rhapi):
 
 #### ActionEffect(label, effect_fn, fields, name=None)
 
-Provides metadata and function linkage for *action effects*.
+Provides metadata and function linkage for _action effects_.
 
 - `label` (string): user-facing text that appears in the RotorHazard frontend interface
 - `effect_fn` (function): function to run when this effect is triggered
@@ -269,6 +273,7 @@ Provides metadata and function linkage for *action effects*.
 - `name` _optional_ (string): internal identifier (auto-generated from `label` if not provided)
 
 Example:
+
 ```
 ActionEffect(
     'udpmessage',
@@ -282,14 +287,14 @@ ActionEffect(
 )
 ```
 
-
 ### LED Effects
 
-*LED Effects* are colors and patterns that may be displayed by an LED strip (or panel) attached to the server. *Effects* are assigned by users in the server's UI, and triggered by the server when appropriate. Most *effects* are triggered by *standard events*, but some (such as the "idle" states) are unique to the LED system and not broadcast elsewhere. All parameters of the *event* become available to the *LED Effect*.
+_LED Effects_ are colors and patterns that may be displayed by an LED strip (or panel) attached to the server. _Effects_ are assigned by users in the server's UI, and triggered by the server when appropriate. Most _effects_ are triggered by _standard events_, but some (such as the "idle" states) are unique to the LED system and not broadcast elsewhere. All parameters of the _event_ become available to the _LED Effect_.
 
-*Effects* must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.LED_INITIALIZE` event. Pass an `LEDEffect` object to this method to register it.
+_Effects_ must be registered to be available in the UI. Access to registration is provided though the `register_fn` argument of the `Evt.LED_INITIALIZE` event. Pass an `LEDEffect` object to this method to register it.
 
 For example, an LED effect might be registered with the following functions:
+
 ```
 from eventmanager import Evt
 from led_event_manager import LEDEffect, effect_delay
@@ -311,12 +316,11 @@ Effects run as IDLE do not clear the display when they complete.
 LED effects which contain animation require execution delays. Effects **MUST** use the provided `effect_delay` for this purpose _(see below)_.
 
 > [!CAUTION]
-> Using `time.sleep`, `gevent.sleep`, or other methods for execution delays in LED effects will prevent proper effect termination and cause visual issues on the LED display or other erratic behavior. 
-
+> Using `time.sleep`, `gevent.sleep`, or other methods for execution delays in LED effects will prevent proper effect termination and cause visual issues on the LED display or other erratic behavior.
 
 #### LEDEffect(label, handler_fn, valid_events, default_args=None, name=None)
 
-Provides metadata and function linkage for *LED effects*.
+Provides metadata and function linkage for _LED effects_.
 
 Often, `color` will be passed through as an argument, which is an RGB hexadecimal code that can be used to modify the effect's output as appropriate. For example, during the `RACE_LAP_RECORDED` event, color is often determined by the pilot that completed the lap.
 
@@ -326,16 +330,18 @@ Often, `color` will be passed through as an argument, which is an RGB hexadecima
 - `default_args` _optional_ (dict): provides default arguments for the handler. These arguments will be overwritten if the `Event` provides arguments with the same keys.
 - `name` _optional_ (string): internal identifier (auto-generated from `label` if not provided)
 
-By default, an *LED effect* will be available to all *events* that can produce LED output except *LEDEvent.IDLE_DONE*, *LEDEvent.IDLE_RACING*, and *LEDEvent.IDLE_READY*. This can be modified with `valid_events`. It should contain a dict with the following optional keys. Each value should be a list of event identifiers.
-- `exclude` (list): this *effect* will never be available for *events* specified here. As a special case, `Evt.ALL` will remove this *effect* from all *events* except those specifically included.
-- `include` (list): this *effect* will always be available for *events* specified here  unless specifically excluded.
-- `recommended` (list): *effects* in this list will receive priority ordering and visibility in the effect selection UI, at the top of the list, with an asterisk. `Evt.ALL` may be used here.
+By default, an _LED effect_ will be available to all _events_ that can produce LED output except _LEDEvent.IDLE_DONE_, _LEDEvent.IDLE_RACING_, and _LEDEvent.IDLE_READY_. This can be modified with `valid_events`. It should contain a dict with the following optional keys. Each value should be a list of event identifiers.
 
-Normally when an *LED effect*'s handler function completes, the display system will look for a `time` argument and wait this many seconds before switching to an appropriate idle state. You can prevent switching to idle with the `preventIdle` argument, but usually it is more appropriate to set a reasonable `time`.
+- `exclude` (list): this _effect_ will never be available for _events_ specified here. As a special case, `Evt.ALL` will remove this _effect_ from all _events_ except those specifically included.
+- `include` (list): this _effect_ will always be available for _events_ specified here unless specifically excluded.
+- `recommended` (list): _effects_ in this list will receive priority ordering and visibility in the effect selection UI, at the top of the list, with an asterisk. `Evt.ALL` may be used here.
 
-A list of standard and LED-specific *events* that will accept and trigger *effects* can be found in `src/server/led_event_manager.py`.
+Normally when an _LED effect_'s handler function completes, the display system will look for a `time` argument and wait this many seconds before switching to an appropriate idle state. You can prevent switching to idle with the `preventIdle` argument, but usually it is more appropriate to set a reasonable `time`.
+
+A list of standard and LED-specific _events_ that will accept and trigger _effects_ can be found in `src/server/led_event_manager.py`.
 
 Example:
+
 ```
 LEDEffect(
     "Image: RotorHazard",
@@ -344,7 +350,7 @@ LEDEffect(
         'recommended': [Evt.STARTUP]
     },
     {
-        'bitmaps': 
+        'bitmaps':
             [
                 {
                     "image": "static/image/LEDpanel-16x16-RotorHazard.png",
@@ -363,12 +369,11 @@ Delay execution of LED effect code, similar to `time.sleep()`. Works asynchronou
 - `ms` (int|float): number of milliseconds to delay
 - `args` (dict): args passed to the LEDEffect
 
-
 ### Data Exporters
 
-*Exporters* provide formatting of event data so it may be saved or sent elsewhere. A user may select and run an exporter from the UI, and will be provided with its contents in a file. Plugins may also trigger exports for their own purposes.
+_Exporters_ provide formatting of event data so it may be saved or sent elsewhere. A user may select and run an exporter from the UI, and will be provided with its contents in a file. Plugins may also trigger exports for their own purposes.
 
-*Exporters* must be registered before use. Access to registration is provided though the `register_fn` argument of the `Evt.DATA_EXPORT_INITIALIZE` event. Pass a `DataExporter` object to this method to register it.
+_Exporters_ must be registered before use. Access to registration is provided though the `register_fn` argument of the `Evt.DATA_EXPORT_INITIALIZE` event. Pass a `DataExporter` object to this method to register it.
 
 For example, an exporter might be registered with the following functions:
 
@@ -397,9 +402,9 @@ def initialize(rhapi):
 
 #### DataExporter(label, formatter_fn, assembler_fn, name=None)
 
-Provides metadata and function linkage for *exporters*.
+Provides metadata and function linkage for _exporters_.
 
-*Exporters* are run in two stages. First, the *assembler* pulls the data needed, then passes it to the *formatter*. In this way, a variety of *assemblers* can share a *formatter*, such as assembling pilot data, heat data, or race data and then passing it to be formatted as CSV or JSON.
+_Exporters_ are run in two stages. First, the _assembler_ pulls the data needed, then passes it to the _formatter_. In this way, a variety of _assemblers_ can share a _formatter_, such as assembling pilot data, heat data, or race data and then passing it to be formatted as CSV or JSON.
 
 - `label` (string): user-facing text that appears in the RotorHazard frontend interface
 - `formatter_fn` (function): function to run for formatting stage
@@ -410,12 +415,11 @@ The `assembler_fn` receives `rhapi` as an argument so that it may access and pre
 
 The `formatter_fn` receives the output of the `assembler_fn`.
 
-
 ### Data Importers
 
-*Importers* accept data and process it so that it can be added to the RH database. A user may select and run an importer from the UI, with a file selector as input. Plugins may also trigger imports for their own purposes.
+_Importers_ accept data and process it so that it can be added to the RH database. A user may select and run an importer from the UI, with a file selector as input. Plugins may also trigger imports for their own purposes.
 
-*Importers* must be registered before use. Access to registration is provided though the `register_fn` argument of the `Evt.DATA_IMPORT_INITIALIZE` event. Pass a `DataImporter` object to this method to register it.
+_Importers_ must be registered before use. Access to registration is provided though the `register_fn` argument of the `Evt.DATA_IMPORT_INITIALIZE` event. Pass a `DataImporter` object to this method to register it.
 
 For example, an importer might be registered with the following functions:
 
@@ -431,7 +435,7 @@ def register_handlers(args):
         DataImporter(
             "My Importer",
             my_import_fn,
-        ),        
+        ),
     )
 
 def initialize(rhapi):
@@ -440,9 +444,9 @@ def initialize(rhapi):
 
 #### DataImporter(label, import_fn, default_args=None, settings=None, name=None)
 
-Provides metadata and function linkage for *importers*.
+Provides metadata and function linkage for _importers_.
 
-When an importer is run, the `run_import` method is called, which collates default and locally-provided arguments, then calls the `import_fn`. 
+When an importer is run, the `run_import` method is called, which collates default and locally-provided arguments, then calls the `import_fn`.
 
 - `label` (string): user-facing text that appears in the RotorHazard frontend interface
 - `import_fn` (function): function to run for formatting stage
@@ -456,10 +460,10 @@ The `import_fn` receives as arguments:
 - `data` (any): data to import, provided by the user
 - `args` (dict): collated default and locally-provided arguments
 
-
 ### UI Fields
 
 An `RHUI.UIField` object defines a frontend user interface for collecting data. It is defined in the following format:
+
 - `name` (string): internal identifier for this parameter
 - `label` (string): text that appears in the RotorHazard frontend interface
 - `desc` _optional_ (string): additional user-facing text that appears in the RotorHazard frontend interface describing notes or special instructions for use
@@ -482,8 +486,8 @@ If `field_type` is `CHECKBOX`
 If `field_type` is `SELECT`
 
 - `options` (list\[UIFieldSelectOption\]): a list of `UIFieldSelectOption` objects with the following properties:
-    - `value` (string): internal identifier used when this option is selected
-    - `label` (string): user-facing text that appears in the RotorHazard frontend interface
+  - `value` (string): internal identifier used when this option is selected
+  - `label` (string): user-facing text that appears in the RotorHazard frontend interface
 - `value` is no longer optional and must match the `value` of an item in `options`.
 
 Import UI Fields objects from RHUI.
@@ -493,16 +497,17 @@ from RHUI import UIField, UIFieldType, UIFieldSelectOption
 ```
 
 ### Metadata
+
 Plugin authors are strongly encouraged to declare metadata. In your plugin folder, create the JSON-formatted file `manifest.json` with the following keys. Keys may be omitted or `null`.
 
 - `name`: The name of your plugin
 - `author`: The plugin author's name
 - `author_uri`: valid HTTP link to the author's website
-- `description`: short description of the plugin's function 
+- `description`: short description of the plugin's function
 - `info_uri`: valid HTTP link to a website about the plugin
 - `license`: name of the plugin's license
 - `license_uri`: valid HTTP link to the plugin's license information
 - `version`: a version identifier for the plugin's own code
-- `required_rhapi_version`: the minimum RHAPI version required to run the plugin, such as "1.1" 
+- `required_rhapi_version`: the minimum RHAPI version required to run the plugin, such as "1.1"
 - `update_uri`: (not yet implemented)
 - `text_domain`: (not yet implemented)
