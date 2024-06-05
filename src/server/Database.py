@@ -319,8 +319,8 @@ class SavedRaceLap(Base):
     pilotrace_id = DB.Column(DB.Integer, DB.ForeignKey("saved_pilot_race.id"), nullable=False)
     node_index = DB.Column(DB.Integer, nullable=False)
     pilot_id = DB.Column(DB.Integer, DB.ForeignKey("pilot.id"), nullable=False)
-    lap_time_stamp = DB.Column(DB.Integer, nullable=False)
-    lap_time = DB.Column(DB.Integer, nullable=False)
+    lap_time_stamp = DB.Column(DB.Float, nullable=False)
+    lap_time = DB.Column(DB.Float, nullable=False)
     lap_time_formatted = DB.Column(DB.String, nullable=False)
     source = DB.Column(DB.Integer, nullable=False)
     deleted = DB.Column(DB.Boolean, nullable=False)
@@ -413,6 +413,8 @@ def initialize(db_uri=None):
     DB_session = scoped_session(sessionmaker(autocommit=False, autoflush=False, \
                                              bind=DB_engine, expire_on_commit=False))
     Base.query = DB_session.query_property()
+
+def create_db_all():
     Base.metadata.create_all(bind=DB_engine)
 
 def close_database():

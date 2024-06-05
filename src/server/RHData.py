@@ -77,6 +77,7 @@ class RHData():
         # Creates tables from database classes/models
         try:
             Database.initialize()
+            Database.create_db_all()
             self.reset_all(nofill) # Fill with defaults
             return True
         except Exception as ex:
@@ -432,7 +433,7 @@ class RHData():
 
             # Carry over registered plugin options
             for field in self._racecontext.rhui.general_settings:
-                carryoverOpts.extend(field.name)
+                carryoverOpts.append(field.name)
 
             # RSSI reduced by half for 2.0.0
             if migrate_db_api < 23:
@@ -693,6 +694,10 @@ class RHData():
                         'name': '',
                         'value': None
                     })
+
+                # Many options migrated to serverconfig in 4.1
+                if "startup" in kwargs and migrate_db_api < 44:
+                    self._racecontext.serverconfig.migrate_legacy_db_keys()
 
                 recover_status['stage_1'] = True
             except Exception as ex:
@@ -1393,7 +1398,7 @@ class RHData():
     def get_results_heat(self, heat_or_id):
         heat = self.resolve_heat_from_heat_or_id(heat_or_id)
 
-        if heat is False:
+        if not heat:
             return False
 
         if len(self.get_savedRaceMetas_by_heat(heat.id)) < 1:
@@ -1421,7 +1426,7 @@ class RHData():
 
         # cache rebuild
         logger.debug('Building Heat {} results'.format(heat.id))
-        build = Results.calc_leaderboard(self, heat_id=heat.id)
+        build = Results.build_leaderboard_heat(self._racecontext, heat)
 
         self.set_results_heat(heat, token, build)
         return build
@@ -1429,7 +1434,7 @@ class RHData():
     def set_results_heat(self, heat_or_id, token, results):
         heat = self.resolve_heat_from_heat_or_id(heat_or_id)
 
-        if heat is False:
+        if not heat:
             return False
 
         cacheStatus = json.loads(heat._cache_status)
@@ -1447,7 +1452,7 @@ class RHData():
     def clear_results_heat(self, heat_or_id, token=None):
         heat = self.resolve_heat_from_heat_or_id(heat_or_id)
 
-        if heat is False:
+        if not heat:
             return False
 
         if token is None:
@@ -1818,7 +1823,7 @@ class RHData():
     def get_results_raceClass(self, raceClass_or_id):
         race_class = self.resolve_raceClass_from_raceClass_or_id(raceClass_or_id)
 
-        if race_class is False:
+        if not race_class:
             return False
 
         if len(self.get_savedRaceMetas_by_raceClass(race_class.id)) < 1:
@@ -1846,14 +1851,14 @@ class RHData():
 
         # cache rebuild
         logger.info('Building Class {} results'.format(race_class.id))
-        build = Results.calc_leaderboard(self, class_id=race_class.id)
+        build = Results.build_leaderboard_class(self._racecontext, race_class)
         self.set_results_raceClass(race_class, token, build)
         return build
 
     def get_ranking_raceClass(self, raceClass_or_id):
         race_class = self.resolve_raceClass_from_raceClass_or_id(raceClass_or_id)
 
-        if race_class is False:
+        if not race_class:
             return False
 
         if len(self.get_savedRaceMetas_by_raceClass(race_class.id)) < 1:
@@ -1888,7 +1893,7 @@ class RHData():
     def set_results_raceClass(self, raceClass_or_id, token, results):
         race_class = self.resolve_raceClass_from_raceClass_or_id(raceClass_or_id)
 
-        if race_class is False:
+        if not race_class:
             return False
 
         if race_class._cache_status:
@@ -1910,7 +1915,7 @@ class RHData():
     def set_ranking_raceClass(self, raceClass_or_id, token, results):
         race_class = self.resolve_raceClass_from_raceClass_or_id(raceClass_or_id)
 
-        if race_class is False:
+        if not race_class:
             return False
 
         if race_class._rank_status:
@@ -1952,7 +1957,7 @@ class RHData():
     def clear_ranking_raceClass(self, raceClass_or_id, token=None):
         race_class = self.resolve_raceClass_from_raceClass_or_id(raceClass_or_id)
 
-        if race_class is False:
+        if not race_class:
             return False
 
         if token is None:
@@ -2772,10 +2777,10 @@ class RHData():
 
         return race_meta, new_heat
 
-    def get_results_savedRaceMeta(self, savedRaceMeta_or_id):
+    def get_results_savedRaceMeta(self, savedRaceMeta_or_id, no_rebuild_flag=False):
         race = self.resolve_savedRaceMeta_from_savedRaceMeta_or_id(savedRaceMeta_or_id)
 
-        if race is False:
+        if not race:
             return False
 
         cache_invalid = False
@@ -2797,9 +2802,12 @@ class RHData():
             token = monotonic()
             self.clear_results_savedRaceMeta(race, token)
 
+        if no_rebuild_flag:
+            return None
+
         # cache rebuild
         logger.debug('Building Race {} (Heat {} Round {}) results'.format(race.id, race.heat_id, race.round_id))
-        build = Results.calc_leaderboard(self, heat_id=race.heat_id, round_id=race.round_id)
+        build = Results.build_leaderboard_race(self._racecontext, heat_id=race.heat_id, round_id=race.round_id)
 
         # calc race points
         if race.format_id:
@@ -2821,7 +2829,7 @@ class RHData():
     def set_results_savedRaceMeta(self, savedRaceMeta_or_id, token, results):
         race = self.resolve_savedRaceMeta_from_savedRaceMeta_or_id(savedRaceMeta_or_id)
 
-        if race is False:
+        if not race:
             return False
 
         if race._cache_status:
@@ -2843,7 +2851,7 @@ class RHData():
     def clear_results_savedRaceMeta(self, savedRaceMeta_or_id, token=None):
         race = self.resolve_savedRaceMeta_from_savedRaceMeta_or_id(savedRaceMeta_or_id)
 
-        if race is False:
+        if not race:
             return False
 
         if token is None:
@@ -3097,6 +3105,10 @@ class RHData():
         except:
             return default_value
 
+    def delete_option(self, option):
+        Database.GlobalSettings.query.filter_by(option_name=option).delete()
+        self.commit()
+
     def clear_options(self):
         Database.DB_session.query(Database.GlobalSettings).delete()
         self.commit()
@@ -3105,46 +3117,19 @@ class RHData():
     def reset_options(self):
         self.clear_options()
         self.set_option("server_api", self._SERVER_API)
-        # group identifiers
-        self.set_option("timerName", self.__("RotorHazard"))
-        self.set_option("timerLogo", "")
-        # group colors
-        self.set_option("hue_0", "212")
-        self.set_option("sat_0", "55")
-        self.set_option("lum_0_low", "29.2")
-        self.set_option("lum_0_high", "46.7")
-        self.set_option("contrast_0_low", "#ffffff")
-        self.set_option("contrast_0_high", "#ffffff")
-
-        self.set_option("hue_1", "25")
-        self.set_option("sat_1", "85.3")
-        self.set_option("lum_1_low", "37.6")
-        self.set_option("lum_1_high", "54.5")
-        self.set_option("contrast_1_low", "#ffffff")
-        self.set_option("contrast_1_high", "#000000")
         # timer state
-        self.set_option("currentLanguage", "")
-        self.set_option("timeFormat", "{m}:{s}.{d}")
-        self.set_option("timeFormatPhonetic", "{m} {s}.{d}")
         self.set_option("currentProfile", "1")
-        self.set_option("calibrationMode", "1")
+        self.set_option("currentFormat", "1")
+        self.set_option("currentHeat", "0")
         # minimum lap
         self.set_option("MinLapSec", "10")
-        self.set_option("MinLapBehavior", "0")
         # event information
         self.set_option("eventName", "{} {}".format(datetime.now().strftime('%Y-%m-%d'), self.__("FPV Race")))
         self.set_option("eventDescription", "")
-        # LED settings
-        self.set_option("ledBrightness", "32")
         # Event results cache
         self.set_option("eventResults_cacheStatus", None)
 
-        self.set_option("startThreshLowerAmount", "0")
-        self.set_option("startThreshLowerDuration", "0")
-        self.set_option("currentFormat", "1")
-        self.set_option("currentHeat", "0")
-
-        logger.info("Reset global settings")
+        logger.info("Reset event options")
 
     # Event Results (Options)
     def get_results_event(self):
@@ -3174,7 +3159,7 @@ class RHData():
 
         # cache rebuild
         logger.debug('Building Event results')
-        build = Results.calc_leaderboard(self)
+        build = Results.build_leaderboard_event(self._racecontext)
         self.set_results_event(token, build)
         return build
 
@@ -3245,7 +3230,7 @@ def getFastestSpeedStr(rhapi, spoken_flag, sel_pilot_id=None):
 # Text replacer
 def doReplace(rhapi, text, args, spoken_flag=False):
     if '%' in text:
-        # %HEAT%
+        # %HEAT% : Current heat name or ID value
         if 'heat_id' in args:
             heat = rhapi.db.heat_by_id(args['heat_id'])
         else:
@@ -3268,65 +3253,66 @@ def doReplace(rhapi, text, args, spoken_flag=False):
             leaderboard = race_results.get(lboard_name, [])
 
             for result in leaderboard:
-                if result['node'] == args['node_index']:
-                    # %LAP_COUNT%
-                    text = text.replace('%LAP_COUNT%', str(result['laps']))
+                if result.get('node') == args['node_index']:
+                    # %LAP_COUNT% : Current lap number
+                    text = text.replace('%LAP_COUNT%', str(result.get('laps')))
 
-                    # %TOTAL_TIME%
+                    # %TOTAL_TIME% : Total time since start of race for pilot
                     text = text.replace('%TOTAL_TIME%', RHUtils.phonetictime_format( \
-                        result['total_time_raw'], rhapi.db.option('timeFormatPhonetic')) \
-                        if spoken_flag else result['total_time'])
+                        result.get('total_time_raw'), rhapi.config.get_item('UI', 'timeFormatPhonetic')) \
+                        if spoken_flag else result.get('total_time', ''))
 
-                    # %TOTAL_TIME_LAPS%
+                    # %TOTAL_TIME_LAPS%: Total time since start of first lap for pilot
                     text = text.replace('%TOTAL_TIME_LAPS%', RHUtils.phonetictime_format( \
-                        result['total_time_laps_raw'], rhapi.db.option('timeFormatPhonetic')) \
-                        if spoken_flag else result['total_time_laps'])
+                        result.get('total_time_laps_raw'), rhapi.config.get_item('UI', 'timeFormatPhonetic')) \
+                        if spoken_flag else result.get('total_time_laps', ''))
 
-                    # %LAST_LAP%
+                    # %LAST_LAP% : Last lap time for pilot
                     text = text.replace('%LAST_LAP%', RHUtils.phonetictime_format( \
-                        result['last_lap_raw'], rhapi.db.option('timeFormatPhonetic')) \
-                        if spoken_flag else result['last_lap'])
+                        result.get('last_lap_raw'), rhapi.config.get_item('UI', 'timeFormatPhonetic')) \
+                        if spoken_flag else result.get('last_lap', ''))
 
-                    # %AVERAGE_LAP%
+                    # %AVERAGE_LAP% : Average lap time for pilot
                     text = text.replace('%AVERAGE_LAP%', RHUtils.phonetictime_format( \
-                        result['average_lap_raw'], rhapi.db.option('timeFormatPhonetic')) \
-                        if spoken_flag else result['average_lap'])
+                        result.get('average_lap_raw'), rhapi.config.get_item('UI', 'timeFormatPhonetic')) \
+                        if spoken_flag else result.get('average_lap', ''))
 
-                    # %FASTEST_LAP%
+                    # %FASTEST_LAP% : Fastest lap time
                     text = text.replace('%FASTEST_LAP%', RHUtils.phonetictime_format( \
-                        result['fastest_lap_raw'], rhapi.db.option('timeFormatPhonetic')) \
-                        if spoken_flag else result['fastest_lap'])
+                        result.get('fastest_lap_raw'), rhapi.config.get_item('UI', 'timeFormatPhonetic')) \
+                        if spoken_flag else result.get('fastest_lap', ''))
 
                     if '%TIME_BEHIND' in text:
                         behind_str = RHUtils.phonetictime_format( \
-                            result['time_behind_raw'], rhapi.db.option('timeFormatPhonetic')) \
-                            if spoken_flag else result['time_behind']
-                        # %TIME_BEHIND% : Amount of time behind race leader
-                        text = text.replace('%TIME_BEHIND%', behind_str)
+                            result.get('time_behind_raw', ''), rhapi.config.get_item('UI', 'timeFormatPhonetic')) \
+                            if spoken_flag else result.get('time_behind', '')
                         pos_bhind_str = ''
-                        if len(behind_str) > 0:
-                            behind_str = "{} {}".format(behind_str, rhapi.__('behind'))
-                            pos_bhind_str = str(result.get('position', ''))
-                            if pos_bhind_str == '1':  # only do %TIME_BEHIND_POS_CALL% if not first
-                                pos_bhind_str = ''
-                            if len(pos_bhind_str) > 0:
-                                pos_bhind_str = "{} {} {} {}, {}".format(rhapi.__('Pilot'), \
-                                                                         pilot_name_str, rhapi.__('finished at position'), \
-                                                                         pos_bhind_str, behind_str)
+                        if behind_str:
+                            # %TIME_BEHIND% : Amount of time behind race leader
+                            text = text.replace('%TIME_BEHIND%', behind_str)
+                            if len(behind_str) > 0:
+                                behind_str = "{} {}".format(behind_str, rhapi.__('behind'))
+                                pos_bhind_str = str(result.get('position', ''))
+                                if pos_bhind_str == '1':  # only do %TIME_BEHIND_POS_CALL% if not first
+                                    pos_bhind_str = ''
+                                if len(pos_bhind_str) > 0:
+                                    pos_bhind_str = "{} {} {} {}, {}".format(rhapi.__('Pilot'), \
+                                                                             pilot_name_str, rhapi.__('finished at position'), \
+                                                                             pos_bhind_str, behind_str)
                         # %TIME_BEHIND_CALL% : Amount of time behind race leader (with prompt)
                         text = text.replace('%TIME_BEHIND_CALL%', behind_str)
                         # %TIME_BEHIND_FINPOS_CALL% : Pilot NAME finished at position X, MM:SS.SSS behind
                         text = text.replace('%TIME_BEHIND_FINPOS_CALL%', pos_bhind_str)
 
-                    # %FASTEST_SPEED%
+                    # %FASTEST_SPEED% : Fastest speed for pilot
                     text = text.replace('%FASTEST_SPEED%', getFastestSpeedStr(rhapi, spoken_flag, \
                                                                               result.get('pilot_id')))
 
-                    # %CONSECUTIVE%
-                    if result['consecutives_base'] == int(rhapi.db.option('consecutivesCount', 3)):
+                    # %CONSECUTIVE% : Fastest consecutive laps for pilot
+                    if result.get('consecutives_base') == int(rhapi.db.option('consecutivesCount', 3)):
                         text = text.replace('%CONSECUTIVE%', RHUtils.phonetictime_format( \
-                            result['consecutives_raw'], rhapi.db.option('timeFormatPhonetic')) \
-                            if spoken_flag else result['consecutives'])
+                            result.get('consecutives_raw'), rhapi.config.get_item('UI', 'timeFormatPhonetic')) \
+                            if spoken_flag else result.get('consecutives', ''))
                     else:
                         text = text.replace('%CONSECUTIVE%', rhapi.__('None'))
 
@@ -3377,10 +3363,23 @@ def doReplace(rhapi, text, args, spoken_flag=False):
                 winner_str = "{} {}".format(rhapi.__('Winner is'), winner_str)
             text = text.replace('%WINNER_CALL%', winner_str)
 
+        if '%ROUND' in text:
+            round_id = rhapi.race.round
+            if round_id:
+                round_str = str(round_id)
+                # %ROUND% : Current round number
+                text = text.replace('%ROUND%', round_str)
+                round_str = "{} {}".format(rhapi.__('Round'), round_str)
+                # %ROUND_CALL% : Current round number (with prompt)
+                text = text.replace('%ROUND_CALL%', round_str)
+
+        # %PILOTS% : List of pilot callsigns (read out slower)
         if '%PILOTS%' in text:
             text = text.replace('%PILOTS%', getPilotsListStr(rhapi, ' . ', spoken_flag))
+        # %LINEUP% : List of pilot callsigns (read out faster)
         if '%LINEUP%' in text:
             text = text.replace('%LINEUP%', getPilotsListStr(rhapi, ' , ', spoken_flag))
+        # %FREQS% : List of pilot callsigns and frequency assignments
         if '%FREQS%' in text:
             text = text.replace('%FREQS%', getPilotFreqsStr(rhapi, ' . ', spoken_flag))
 

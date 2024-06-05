@@ -11,6 +11,7 @@ import glob
 import socket
 import random
 import functools
+import traceback
 import util.RH_GPIO as RH_GPIO
 
 logger = logging.getLogger(__name__)
@@ -29,10 +30,10 @@ S32_BPill_board_flag = False  # set by 'idAndLogSystemInfo()'
 
 def time_format(millis, timeformat='{m}:{s}.{d}'):
     '''Convert milliseconds to 00:00.000'''
-    if millis is None:
+    if not isinstance(millis, (int, float)):
         return ''
 
-    millis = int(round(millis, 0))
+    millis = int(round(millis, 0)) # round to nearest ms
     minutes = millis // 60000
     over = millis % 60000
     seconds = over // 1000
@@ -46,7 +47,7 @@ def time_format(millis, timeformat='{m}:{s}.{d}'):
 
 def split_time_format(millis, timeformat='{m}:{s}.{d}'):
     '''Convert milliseconds to 00:00.000 with leading zeros removed'''
-    if millis is None:
+    if not isinstance(millis, (int, float)):
         return ''
     s = time_format(millis, timeformat)
     if len(s) > 3 and s.startswith("0:"):
@@ -56,15 +57,15 @@ def split_time_format(millis, timeformat='{m}:{s}.{d}'):
 
 def phonetictime_format(millis, timeformat='{m} {s}.{d}'):
     '''Convert milliseconds to phonetic'''
-    if millis is None:
+    if not isinstance(millis, (int, float)):
         return ''
 
-    millis = int(millis + 50)  # round to nearest tenth of a second
+    millis = int(millis) # strip fractional part
     minutes = millis // 60000
     over = millis % 60000
     seconds = over // 1000
     over = over % 1000
-    tenths = over // 100
+    tenths = over // 100 # floor at tenths
 
     if not timeformat:
         timeformat = '{m} {s}.{d}'
@@ -161,6 +162,8 @@ def getOsBitSizeStr(prefixStr=None, suffixStr="-bit"):
                 _bitSizeStr = prefixStr + _bitSizeStr
             if suffixStr:
                 _bitSizeStr = _bitSizeStr + suffixStr
+    except FileNotFoundError:
+        logger.debug("Unable to determine bit size in 'getOsBitSizeStr': Invoking 'getconf' not supported")
     except Exception as ex:
         logger.debug("Error in 'getOsBitSizeStr': {}".format(ex))
     return _bitSizeStr
@@ -388,3 +391,25 @@ def checkPythonVersion(majorVer, minorVer):
                         format(verStr, majorVer, minorVer))
     except Exception as ex:
         logger.debug("Error in 'checkRepPythonVersionStr': {}".format(ex))
+
+# Returns a debug traceback message indicated where the given function was called from, in the form:
+#   FILENAME.py line ###, in OUTER_FN_NAME
+def getFnTracebackMsgStr(fnNameStr):
+    try:
+        traceStr = str(traceback.format_stack())
+        ePos = traceStr.find(fnNameStr)  # find first occurrence of given function name in traceback
+        if ePos > 0:
+            traceStr = traceStr[:ePos]  # make end position right before function name
+            sPos = traceStr.rfind(".py")
+            if sPos < 0:
+                sPos = 0
+            while sPos > 0 and traceStr[sPos-1].isidentifier():  # find beginning of .py filename
+                sPos -= 1
+            traceStr = traceStr[sPos:ePos]
+            ePos = traceStr.find('\\n')
+            if ePos > 0:
+                traceStr = traceStr[:ePos]  # make end position right before linefeed
+            return traceStr.replace('", ', ' ').replace('\\n','').strip()  # tidy a bit
+        return "Unable to find given function name in traceback"
+    except Exception as ex:
+        return "Error parsing traceback in 'getFnTracebackMsgStr()':  {}".format(ex)

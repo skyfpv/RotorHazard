@@ -15,13 +15,15 @@
 !/src/server/db_bkp/README.md
 
 # Local system configuration
-/src/server/config.json
+/src/server/config*.json
+/src/tests/config*.json
 
 # Run logs
 logs
 
 # Specific folders
 venv
+.venv
 
 # User files, except the README
 /src/server/static/user/*
